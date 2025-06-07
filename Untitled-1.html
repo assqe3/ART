@@ -1,112 +1,782 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>لوحة رسم تشاركية</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background-color: #f5f5f5;
-    }
-
-    canvas {
-      display: block;
-      background: white;
-      border: 2px solid #ccc;
-      margin: auto;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      touch-action: none;
-    }
-
-    #tools {
-      position: fixed;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: white;
-      padding: 10px 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-      display: flex;
-      gap: 15px;
-      align-items: center;
-      z-index: 10;
-    }
-
-    #tools input[type="color"],
-    #tools input[type="range"] {
-      cursor: pointer;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مشاهدة يوتيوب جماعية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', 'Inter', sans-serif;
+            overscroll-behavior: none; 
+        }
+        .chat-message {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .chat-message.sent {
+            background-color: #2563eb; 
+            color: white;
+            margin-left: auto;
+            text-align: left;
+        }
+        .chat-message.received {
+            background-color: #e5e7eb; 
+            color: #1f2937; 
+            margin-right: auto;
+            text-align: right;
+        }
+        .chat-message strong {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background-color: #374151; /* bg-gray-700 */
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .search-result-item:hover {
+            background-color: #4b5563; /* bg-gray-600 */
+        }
+        .search-result-item img {
+            width: 100px; /* Fixed width for thumbnail */
+            height: 56px; /* 16:9 aspect ratio */
+            object-fit: cover;
+            border-radius: 4px;
+            margin-left: 12px; /* RTL: margin-left */
+        }
+        .search-result-item div {
+            flex-grow: 1;
+            text-align: right; /* RTL */
+        }
+        .search-result-item p {
+            font-size: 0.9rem;
+            color: #d1d5db; /* text-gray-300 */
+            margin: 0;
+        }
+         #searchResultsContainer {
+            max-height: 200px; /* Limit height and make scrollable */
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid #4b5563; /* border-gray-600 */
+            border-radius: 8px;
+            padding: 5px;
+        }
+        .auth-form {
+            background-color: #1f2937; /* bg-gray-800 */
+            padding: 1.5rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+            margin-bottom: 1.5rem;
+        }
+        .auth-form input {
+            color: #1f2937; /* text-gray-800 for input text */
+        }
+    </style>
 </head>
-<body>
-  <div id="tools">
-    <label>اللون:
-      <input type="color" id="colorPicker" value="#000000" />
-    </label>
-    <label>السُمك:
-      <input type="range" id="brushSize" min="1" max="20" value="4" />
-    </label>
-    <button onclick="clearCanvas()">مسح الكل</button>
-  </div>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
 
-  <canvas id="drawCanvas"></canvas>
+    <div id="messageModal" class="modal">
+        <div class="modal-content text-gray-800">
+            <p id="modalMessageText"></p>
+            <button id="closeModalButton" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150">
+                حسناً
+            </button>
+        </div>
+    </div>
 
-  <script>
-    const canvas = document.getElementById('drawCanvas');
-    const ctx = canvas.getContext('2d');
-    const colorPicker = document.getElementById('colorPicker');
-    const brushSize = document.getElementById('brushSize');
+    <!-- Authentication Section -->
+    <div id="authSection" class="w-full max-w-md mb-8">
+        <div id="authFormsContainer">
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form">
+                <h2 class="text-2xl font-bold mb-4 text-center text-blue-400">تسجيل الدخول</h2>
+                <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" class="w-full p-3 border border-gray-600 rounded-lg mb-3 bg-gray-200 text-gray-800 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                <input type="password" id="loginPassword" placeholder="كلمة المرور" class="w-full p-3 border border-gray-600 rounded-lg mb-3 bg-gray-200 text-gray-800 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                <button id="loginButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-150 mb-2">تسجيل الدخول</button>
+                <p class="text-center text-sm text-gray-400">ليس لديك حساب؟ <button id="showSignupFormButton" class="text-green-400 hover:text-green-300">أنشئ حسابًا</button></p>
+            </div>
 
-    // اضبط حجم اللوحة
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
+            <!-- Signup Form (hidden by default) -->
+            <div id="signupForm" class="auth-form hidden">
+                <h2 class="text-2xl font-bold mb-4 text-center text-green-400">إنشاء حساب جديد</h2>
+                <input type="email" id="signupEmail" placeholder="البريد الإلكتروني" class="w-full p-3 border border-gray-600 rounded-lg mb-3 bg-gray-200 text-gray-800 placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+                <input type="password" id="signupPassword" placeholder="كلمة المرور (6 أحرف على الأقل)" class="w-full p-3 border border-gray-600 rounded-lg mb-3 bg-gray-200 text-gray-800 placeholder-gray-500 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none">
+                <button id="signupButton" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-150 mb-2">إنشاء الحساب</button>
+                <p class="text-center text-sm text-gray-400">لديك حساب بالفعل؟ <button id="showLoginFormButton" class="text-blue-400 hover:text-blue-300">سجل الدخول</button></p>
+            </div>
+        </div>
+        
+        <div id="userInfo" class="hidden text-center mt-4 p-4 bg-gray-800 rounded-xl">
+            <p id="welcomeMessage" class="text-lg mb-2"></p>
+            <button id="logoutButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150">تسجيل الخروج</button>
+        </div>
+    </div>
 
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
 
-    let drawing = false;
+    <div id="roomManagementSection" class="w-full max-w-md bg-gray-800 p-6 md:p-8 rounded-xl shadow-2xl hidden">
+        <h1 class="text-3xl font-bold mb-6 text-center text-blue-400">مشاهدة جماعية مع الأصدقاء</h1>
+        <div class="mb-4">
+            <button id="createRoomButton" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-150 text-lg">
+                إنشاء غرفة جديدة
+            </button>
+        </div>
+        <div class="flex items-center my-6">
+            <hr class="flex-grow border-gray-600">
+            <span class="px-4 text-gray-400">أو</span>
+            <hr class="flex-grow border-gray-600">
+        </div>
+        <div>
+            <input type="text" id="joinRoomIdInput" placeholder="أدخل معرف الغرفة" class="w-full p-3 border border-gray-600 rounded-lg mb-3 bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+            <button id="joinRoomButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-150 text-lg">
+                الانضمام إلى غرفة
+            </button>
+        </div>
+        <p class="text-center mt-6 text-sm text-gray-500">معرف المستخدم الخاص بك: <span id="displayUserId" class="font-mono">جار التحميل...</span></p>
+    </div>
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mouseup', stopDraw);
-    canvas.addEventListener('mousemove', draw);
+    <div id="mainAppSection" class="hidden w-full max-w-6xl mt-0">
+        <div class="bg-gray-800 p-4 md:p-6 rounded-xl shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl md:text-2xl font-semibold text-blue-400">غرفة المشاهدة: <span id="displayRoomId" class="font-mono"></span></h2>
+                <button id="leaveRoomButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 text-sm">
+                    مغادرة الغرفة
+                </button>
+            </div>
+             <p class="text-sm text-gray-400 mb-4">مسجل كـ: <span id="displayUserIdInApp" class="font-mono"></span></p>
 
-    canvas.addEventListener('touchstart', (e) => startDraw(e.touches[0]));
-    canvas.addEventListener('touchend', stopDraw);
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      draw(e.touches[0]);
-    });
+            <div class="flex flex-col lg:flex-row gap-4">
+                <div class="lg:w-2/3 w-full">
+                    <div class="mb-4">
+                        <label for="youtubeSearchInput" class="block mb-2 text-sm font-medium text-gray-300">ابحث عن فيديو يوتيوب:</label>
+                        <div class="flex">
+                            <input type="text" id="youtubeSearchInput" placeholder="اكتب عبارة البحث..." class="flex-grow p-3 border border-gray-600 rounded-r-lg bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                            <button id="searchVideoButton" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-4 rounded-l-lg transition duration-150">
+                                بحث
+                            </button>
+                        </div>
+                        <div id="searchResultsContainer" class="hidden"></div>
+                         <p id="searchStatus" class="mt-2 text-sm text-gray-500"></p>
+                    </div>
+                    <div class="mb-4">
+                        <label for="youtubeUrlInput" class="block mb-2 text-sm font-medium text-gray-300">أو أدخل رابط فيديو يوتيوب:</label>
+                        <div class="flex">
+                            <input type="url" id="youtubeUrlInput" placeholder="https://www.youtube.com/watch?v=..." class="flex-grow p-3 border border-gray-600 rounded-r-lg bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                            <button id="loadVideoButton" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-l-lg transition duration-150">
+                                تحميل الرابط
+                            </button>
+                        </div>
+                    </div>
+                    <div id="playerContainer" class="aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
+                        <div id="youtubePlayer"></div>
+                    </div>
+                     <p id="currentVideoTitle" class="mt-2 text-sm text-gray-400 truncate"></p>
+                </div>
+                <div class="lg:w-1/3 w-full flex flex-col bg-gray-700 rounded-lg shadow-lg p-1 md:p-2" style="height: calc(100vh - 250px); min-height: 400px; max-height: 600px;">
+                    <h3 class="text-lg font-semibold mb-3 p-3 text-center border-b border-gray-600 text-blue-300">الدردشة</h3>
+                    <div id="chatMessages" class="flex-grow overflow-y-auto p-3 space-y-2 mb-3"></div>
+                    <div class="p-3 border-t border-gray-600">
+                        <div class="flex">
+                            <input type="text" id="chatInput" placeholder="اكتب رسالتك..." class="flex-grow p-3 border border-gray-600 rounded-r-lg bg-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                            <button id="sendChatMessageButton" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-l-lg transition duration-150">
+                                إرسال
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    function startDraw(e) {
-      drawing = true;
-      ctx.beginPath();
-      ctx.moveTo(e.clientX, e.clientY);
-    }
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+            setPersistence, browserLocalPersistence, 
+            createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, doc, getDoc, setDoc, updateDoc,
+            onSnapshot, collection, addDoc, serverTimestamp, query, orderBy 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    function stopDraw() {
-      drawing = false;
-      ctx.closePath();
-    }
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "YOUR_FALLBACK_API_KEY", 
+            authDomain: "YOUR_FALLBACK_AUTH_DOMAIN",
+            projectId: "YOUR_FALLBACK_PROJECT_ID",
+            storageBucket: "YOUR_FALLBACK_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_FALLBACK_MESSAGING_SENDER_ID",
+            appId: "YOUR_FALLBACK_APP_ID"
+        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-yt-watch-party';
+        
+        const YOUTUBE_API_KEY_PLACEHOLDER = "YOUR_YOUTUBE_API_KEY"; 
+        const YOUTUBE_API_KEY = "AIzaSyCoYuNXg5V3KXn011w7TPfEFKXH0ig79Ws"; 
 
-    function draw(e) {
-      if (!drawing) return;
-      ctx.lineTo(e.clientX, e.clientY);
-      ctx.strokeStyle = colorPicker.value;
-      ctx.lineWidth = brushSize.value;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-    }
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-    function clearCanvas() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  </script>
+        const PLAYER_STATES = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
+
+        let player;
+        let currentUserId = null;
+        let currentUserEmail = null; // To store user's email or display name part
+        let currentRoomId = null;
+        let roomUnsubscribe = null;
+        let chatUnsubscribe = null;
+        let localPlayerUpdate = false; 
+        let lastKnownPlayerState = PLAYER_STATES.UNSTARTED; 
+        let lastKnownVideoTime = 0;
+
+        // Auth UI Elements
+        const authSection = document.getElementById('authSection');
+        const authFormsContainer = document.getElementById('authFormsContainer');
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const loginEmailInput = document.getElementById('loginEmail');
+        const loginPasswordInput = document.getElementById('loginPassword');
+        const loginButton = document.getElementById('loginButton');
+        const signupEmailInput = document.getElementById('signupEmail');
+        const signupPasswordInput = document.getElementById('signupPassword');
+        const signupButton = document.getElementById('signupButton');
+        const showSignupFormButton = document.getElementById('showSignupFormButton');
+        const showLoginFormButton = document.getElementById('showLoginFormButton');
+        const userInfo = document.getElementById('userInfo');
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const logoutButton = document.getElementById('logoutButton');
+
+
+        const roomManagementSection = document.getElementById('roomManagementSection');
+        const mainAppSection = document.getElementById('mainAppSection');
+        const createRoomButton = document.getElementById('createRoomButton');
+        const joinRoomIdInput = document.getElementById('joinRoomIdInput');
+        const joinRoomButton = document.getElementById('joinRoomButton');
+        const displayUserId = document.getElementById('displayUserId'); // In room management
+        const displayUserIdInApp = document.getElementById('displayUserIdInApp'); // In main app
+        const displayRoomId = document.getElementById('displayRoomId');
+        const leaveRoomButton = document.getElementById('leaveRoomButton');
+        
+        const youtubeUrlInput = document.getElementById('youtubeUrlInput');
+        const loadVideoButton = document.getElementById('loadVideoButton');
+        const youtubeSearchInput = document.getElementById('youtubeSearchInput');
+        const searchVideoButton = document.getElementById('searchVideoButton');
+        const searchResultsContainer = document.getElementById('searchResultsContainer');
+        const searchStatus = document.getElementById('searchStatus');
+
+        const currentVideoTitle = document.getElementById('currentVideoTitle');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatMessageButton = document.getElementById('sendChatMessageButton');
+        const messageModal = document.getElementById('messageModal');
+        const modalMessageText = document.getElementById('modalMessageText');
+        const closeModalButton = document.getElementById('closeModalButton');
+
+        function showModal(message) {
+            modalMessageText.textContent = message;
+            messageModal.classList.add('active');
+        }
+        closeModalButton.addEventListener('click', () => messageModal.classList.remove('active'));
+
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        window.onYouTubeIframeAPIReady = function() { console.log("YouTube Iframe API Ready."); };
+
+        function initializePlayer(videoId) {
+            if (player) player.destroy();
+            player = new YT.Player('youtubePlayer', {
+                height: '100%', width: '100%', videoId: videoId || null,
+                playerVars: { 'playsinline': 1, 'autoplay': 0, 'controls': 1, 'rel': 0, 'fs': 1 },
+                events: { 'onReady': onPlayerReady, 'onStateChange': onPlayerStateChange }
+            });
+        }
+        
+        function onPlayerReady(event) { console.log("Player ready. Room:", currentRoomId); }
+
+        async function onPlayerStateChange(event) {
+            if (!currentRoomId || !currentUserId || localPlayerUpdate) return;
+            const playerState = event.data;
+            const currentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
+            if (playerState === lastKnownPlayerState && Math.abs(currentTime - lastKnownVideoTime) < 2 && playerState !== PLAYER_STATES.PAUSED) return;
+            lastKnownPlayerState = playerState;
+            lastKnownVideoTime = currentTime;
+            const roomRef = doc(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${currentRoomId}`);
+            try {
+                await updateDoc(roomRef, { playerState, currentTime, lastUpdateBy: currentUserId, updatedAt: serverTimestamp() });
+            } catch (error) {
+                console.error("Error updating player state in Firestore:", error);
+                showModal("حدث خطأ أثناء مزامنة حالة الفيديو.");
+            }
+        }
+
+        // --- Firebase Authentication Listeners and Functions ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) { // User is signed in
+                currentUserId = user.uid;
+                currentUserEmail = user.email ? user.email.split('@')[0] : `مستخدم ${user.uid.substring(0,6)}`;
+                
+                displayUserId.textContent = currentUserEmail; // Show email/name in room management
+                displayUserIdInApp.textContent = currentUserEmail; // Show email/name in app
+                welcomeMessage.textContent = `مرحباً بك، ${currentUserEmail}!`;
+
+                authFormsContainer.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                roomManagementSection.classList.remove('hidden'); // Show room management
+                createRoomButton.disabled = false;
+                joinRoomButton.disabled = false;
+
+                // If a custom token was used and no email, it might be an anonymous-like user from the environment
+                if (!user.email && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    console.log("User authenticated with custom token (potentially anonymous-like).");
+                    displayUserId.textContent = `مستخدم ${user.uid.substring(0,8)}`;
+                    displayUserIdInApp.textContent = `مستخدم ${user.uid.substring(0,8)}`;
+                    welcomeMessage.textContent = `مرحباً بك، مستخدم ${user.uid.substring(0,8)}!`;
+                }
+
+
+            } else { // User is signed out or not yet signed in
+                currentUserId = null;
+                currentUserEmail = null;
+
+                // Attempt anonymous sign-in if no user and no initial token (fresh session)
+                if (typeof __initial_auth_token === 'undefined' || !__initial_auth_token) {
+                    try {
+                        console.log("No active user, attempting anonymous sign-in for basic functionality.");
+                        await signInAnonymously(auth);
+                        // onAuthStateChanged will fire again with the anonymous user
+                        return; // Exit this call, let the new auth state handle UI
+                    } catch (error) {
+                        console.error("Anonymous sign-in failed:", error);
+                        showModal("فشل تسجيل الدخول المجهول. قد لا تعمل بعض الميزات.");
+                         // Fall through to show login/signup forms if anonymous fails
+                    }
+                }
+                
+                // If still no user (e.g. after logout, or if anonymous failed, or if initial token was for a specific user who logged out)
+                displayUserId.textContent = "غير مسجل";
+                displayUserIdInApp.textContent = "غير مسجل";
+                
+                authFormsContainer.classList.remove('hidden');
+                loginForm.classList.remove('hidden'); // Show login form by default
+                signupForm.classList.add('hidden');
+                userInfo.classList.add('hidden');
+                roomManagementSection.classList.add('hidden'); // Hide room management if not logged in
+                mainAppSection.classList.add('hidden'); // Hide main app if not logged in
+                if(player && typeof player.stopVideo === 'function') player.stopVideo(); // Stop video if playing
+
+                createRoomButton.disabled = true;
+                joinRoomButton.disabled = true;
+            }
+        });
+        
+        // Handle initial sign-in for custom token (environment provided)
+        async function initialSignIn() {
+             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                try {
+                    await setPersistence(auth, browserLocalPersistence);
+                    console.log("Attempting sign in with custom token from environment.");
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    // onAuthStateChanged will handle the UI updates
+                } catch (error) {
+                    console.error("Custom token sign-in error:", error);
+                    // Fallback to showing login/signup forms or attempting anonymous if custom token fails
+                    // The onAuthStateChanged 'else' block will handle this by attempting anonymous sign-in
+                }
+            } else {
+                // If no initial token, onAuthStateChanged will attempt anonymous sign-in
+                console.log("No initial custom token provided. Will attempt anonymous or show login forms.");
+            }
+        }
+        initialSignIn();
+
+
+        showSignupFormButton.addEventListener('click', () => {
+            loginForm.classList.add('hidden');
+            signupForm.classList.remove('hidden');
+        });
+
+        showLoginFormButton.addEventListener('click', () => {
+            signupForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        });
+
+        signupButton.addEventListener('click', async () => {
+            const email = signupEmailInput.value;
+            const password = signupPasswordInput.value;
+            if (!email || !password) {
+                showModal("الرجاء إدخال البريد الإلكتروني وكلمة المرور.");
+                return;
+            }
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle UI updates
+                signupEmailInput.value = '';
+                signupPasswordInput.value = '';
+                showModal("تم إنشاء الحساب بنجاح! يتم تسجيل دخولك...");
+            } catch (error) {
+                console.error("Error signing up:", error);
+                showModal(`فشل إنشاء الحساب: ${mapAuthError(error.code)}`);
+            }
+        });
+
+        loginButton.addEventListener('click', async () => {
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
+            if (!email || !password) {
+                showModal("الرجاء إدخال البريد الإلكتروني وكلمة المرور.");
+                return;
+            }
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle UI updates
+                loginEmailInput.value = '';
+                loginPasswordInput.value = '';
+                showModal("تم تسجيل الدخول بنجاح!");
+            } catch (error) {
+                console.error("Error logging in:", error);
+                showModal(`فشل تسجيل الدخول: ${mapAuthError(error.code)}`);
+            }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                // onAuthStateChanged will handle UI updates to show login/signup forms
+                // and attempt anonymous sign-in.
+                currentRoomId = null; // Reset current room on logout
+                if (roomUnsubscribe) roomUnsubscribe();
+                if (chatUnsubscribe) chatUnsubscribe();
+                showModal("تم تسجيل الخروج بنجاح.");
+            } catch (error) {
+                console.error("Error signing out:", error);
+                showModal("فشل تسجيل الخروج.");
+            }
+        });
+        
+        function mapAuthError(errorCode) {
+            switch (errorCode) {
+                case 'auth/invalid-email': return 'البريد الإلكتروني غير صالح.';
+                case 'auth/user-disabled': return 'تم تعطيل هذا الحساب.';
+                case 'auth/user-not-found': return 'لا يوجد حساب بهذا البريد الإلكتروني.';
+                case 'auth/wrong-password': return 'كلمة المرور غير صحيحة.';
+                case 'auth/email-already-in-use': return 'هذا البريد الإلكتروني مستخدم بالفعل.';
+                case 'auth/weak-password': return 'كلمة المرور ضعيفة جداً (يجب أن تكون 6 أحرف على الأقل).';
+                default: return 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
+            }
+        }
+
+
+        // --- Room Management --- (largely unchanged)
+        createRoomButton.addEventListener('click', async () => {
+            if (!currentUserId) { showModal("يجب تسجيل الدخول لإنشاء غرفة."); return; }
+            const newRoomId = Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+            const roomRef = doc(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${newRoomId}`);
+            try {
+                await setDoc(roomRef, {
+                    createdAt: serverTimestamp(), createdBy: currentUserId, currentVideoId: null,
+                    currentVideoTitle: "لا يوجد فيديو حالياً", playerState: PLAYER_STATES.UNSTARTED, 
+                    currentTime: 0, lastUpdateBy: currentUserId
+                });
+                joinRoom(newRoomId);
+            } catch (error) { console.error("Error creating room:", error); showModal("حدث خطأ أثناء إنشاء الغرفة."); }
+        });
+
+        joinRoomButton.addEventListener('click', () => {
+            if (!currentUserId) { showModal("يجب تسجيل الدخول للانضمام إلى غرفة."); return; }
+            const roomIdToJoin = joinRoomIdInput.value.trim();
+            if (!roomIdToJoin) { showModal("الرجاء إدخال معرف الغرفة."); return; }
+            joinRoom(roomIdToJoin);
+        });
+
+        async function joinRoom(roomId) {
+            if (!currentUserId) { showModal("خطأ: لم يتم تحديد المستخدم. حاول تحديث الصفحة."); return; }
+            const roomRef = doc(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${roomId}`);
+            try {
+                const roomSnap = await getDoc(roomRef);
+                if (roomSnap.exists()) {
+                    currentRoomId = roomId;
+                    displayRoomId.textContent = roomId;
+                    authSection.classList.add('hidden'); // Hide auth section after joining room
+                    roomManagementSection.classList.add('hidden'); // Hide room management after joining room
+                    mainAppSection.classList.remove('hidden');
+                    if (typeof YT !== 'undefined' && typeof YT.Player !== 'undefined') {
+                         initializePlayer(roomSnap.data().currentVideoId);
+                    } else { console.log("YT API not ready for player init in joinRoom."); }
+                    listenToRoomUpdates();
+                    listenToChatMessages();
+                    youtubeUrlInput.value = ''; 
+                    youtubeSearchInput.value = '';
+                    searchResultsContainer.innerHTML = '';
+                    searchResultsContainer.classList.add('hidden');
+                    searchStatus.textContent = '';
+                } else { showModal(`الغرفة بالمعرف "${roomId}" غير موجودة.`); }
+            } catch (error) { console.error("Error joining room:", error); showModal("حدث خطأ أثناء الانضمام إلى الغرفة."); }
+        }
+
+        leaveRoomButton.addEventListener('click', () => {
+            if (roomUnsubscribe) roomUnsubscribe();
+            if (chatUnsubscribe) chatUnsubscribe();
+            if (player && typeof player.stopVideo === 'function') player.stopVideo();
+            if (player && typeof player.loadVideoById === 'function') player.loadVideoById('');
+            currentVideoTitle.textContent = "لا يوجد فيديو حالياً";
+            currentRoomId = null; // Reset current room
+            
+            mainAppSection.classList.add('hidden'); // Hide main app
+            authSection.classList.remove('hidden'); // Show auth section (which will then decide to show forms or user info)
+            roomManagementSection.classList.remove('hidden'); // Show room management (it will be hidden again if user is logged out by onAuthStateChanged)
+            // onAuthStateChanged will ensure correct UI state (show login/signup if logged out, or user info if still logged in)
+        });
+
+
+        // --- Video Loading --- (largely unchanged)
+        async function loadVideoToRoom(videoId, videoTitle) {
+            if (!currentRoomId || !currentUserId) return;
+             if (!videoId) { showModal("معرف الفيديو غير صالح."); return; }
+            const roomRef = doc(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${currentRoomId}`);
+            try {
+                localPlayerUpdate = true; 
+                await updateDoc(roomRef, {
+                    currentVideoId: videoId, currentVideoTitle: videoTitle || `فيديو بمعرف: ${videoId}`, 
+                    playerState: PLAYER_STATES.UNSTARTED, currentTime: 0,
+                    lastUpdateBy: currentUserId, updatedAt: serverTimestamp()
+                });
+                youtubeUrlInput.value = ''; youtubeSearchInput.value = ''; 
+                searchResultsContainer.innerHTML = ''; searchResultsContainer.classList.add('hidden');
+                searchStatus.textContent = '';
+                setTimeout(() => localPlayerUpdate = false, 500); 
+            } catch (error) {
+                console.error("Error setting video in Firestore:", error);
+                showModal("حدث خطأ أثناء تحميل الفيديو."); localPlayerUpdate = false;
+            }
+        }
+        
+        loadVideoButton.addEventListener('click', () => {
+            const url = youtubeUrlInput.value.trim();
+            const videoId = extractVideoId(url);
+            if (videoId) { loadVideoToRoom(videoId, `فيديو من رابط: ${videoId.substring(0,5)}...`); } 
+            else { showModal("رابط يوتيوب غير صالح. الرجاء التأكد من أن الرابط صحيح."); }
+        });
+
+        function extractVideoId(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        // --- YouTube API Search --- (largely unchanged)
+        searchVideoButton.addEventListener('click', async () => {
+            const query = youtubeSearchInput.value.trim();
+            if (!query) { showModal("الرجاء إدخال عبارة بحث."); return; }
+            if (YOUTUBE_API_KEY === YOUTUBE_API_KEY_PLACEHOLDER || !YOUTUBE_API_KEY) {
+                showModal("مفتاح YouTube Data API غير مهيأ بشكل صحيح. يرجى مراجعة الكود وإضافة مفتاح API صالح للمتابعة.");
+                console.error("YouTube Data API key is missing or is the placeholder value.");
+                searchStatus.textContent = "خطأ: مفتاح YouTube API غير مهيأ."; return;
+            }
+            searchStatus.textContent = "جاري البحث...";
+            searchResultsContainer.innerHTML = ''; searchResultsContainer.classList.add('hidden');
+            const maxResults = 5; 
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&key=${YOUTUBE_API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errorData = await response.json(); console.error("YouTube API Error:", errorData);
+                    if (errorData.error?.errors?.some(e => e.reason === "badRequest" || e.reason === "apiKeyInvalid")) {
+                         showModal("مفتاح YouTube Data API المستخدم غير صالح.");
+                         searchStatus.textContent = "خطأ: مفتاح YouTube API غير صالح.";
+                    } else { throw new Error(`خطأ من واجهة يوتيوب: ${errorData.error?.message || response.statusText}`); }
+                    return; 
+                }
+                const data = await response.json(); displaySearchResults(data.items);
+            } catch (error) {
+                console.error("Error searching YouTube videos:", error);
+                if (searchStatus.textContent !== "خطأ: مفتاح YouTube API غير صالح." && searchStatus.textContent !== "خطأ: مفتاح YouTube API غير مهيأ.") {
+                    showModal(`فشل البحث عن الفيديوهات: ${error.message}`);
+                }
+                if (!searchStatus.textContent.startsWith("خطأ:")) { searchStatus.textContent = `فشل البحث: ${error.message}`; }
+            }
+        });
+
+        function displaySearchResults(items) {
+            searchResultsContainer.innerHTML = ''; 
+            if (!items || items.length === 0) {
+                searchStatus.textContent = "لم يتم العثور على نتائج.";
+                searchResultsContainer.classList.add('hidden'); return;
+            }
+            searchStatus.textContent = `تم العثور على ${items.length} نتائج:`;
+            items.forEach(item => {
+                const videoId = item.id.videoId; const title = item.snippet.title;
+                const thumbnailUrl = item.snippet.thumbnails.default.url;
+                const resultElement = document.createElement('div');
+                resultElement.classList.add('search-result-item');
+                resultElement.innerHTML = `
+                    <img src="${thumbnailUrl}" alt="${escapeHTML(title)}">
+                    <div> <p title="${escapeHTML(title)}">${escapeHTML(truncateText(title, 60))}</p> </div>`;
+                resultElement.addEventListener('click', () => loadVideoToRoom(videoId, title));
+                searchResultsContainer.appendChild(resultElement);
+            });
+            searchResultsContainer.classList.remove('hidden');
+        }
+
+        function truncateText(text, maxLength) {
+            return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+        }
+
+        // --- Firestore Listeners --- (largely unchanged)
+        function listenToRoomUpdates() {
+            if (roomUnsubscribe) roomUnsubscribe(); 
+            const roomRef = doc(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${currentRoomId}`);
+            roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists() || !player || typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+                    if (!docSnap.exists() && currentRoomId) { 
+                        showModal("تم حذف الغرفة أو لم تعد متاحة.");
+                        if(leaveRoomButton) leaveRoomButton.click(); 
+                    } return;
+                }
+                const roomData = docSnap.data();
+                if (player.getVideoData && roomData.currentVideoId && player.getVideoData().video_id !== roomData.currentVideoId) {
+                    localPlayerUpdate = true; player.loadVideoById(roomData.currentVideoId);
+                    setTimeout(() => localPlayerUpdate = false, 1000); 
+                } else if (!roomData.currentVideoId && player.getVideoData && player.getVideoData().video_id) {
+                    localPlayerUpdate = true; if (player.stopVideo) player.stopVideo();
+                    if (player.clearVideo) player.clearVideo(); 
+                    currentVideoTitle.textContent = "لا يوجد فيديو حالياً";
+                    setTimeout(() => localPlayerUpdate = false, 500);
+                }
+                currentVideoTitle.textContent = roomData.currentVideoTitle || "لا يوجد فيديو حالياً";
+                if (roomData.lastUpdateBy !== currentUserId) {
+                    localPlayerUpdate = true; 
+                    const localTime = player.getCurrentTime ? player.getCurrentTime() : 0;
+                    if (Math.abs(roomData.currentTime - localTime) > 2.5) { 
+                        if (player.seekTo) player.seekTo(roomData.currentTime, true);
+                    }
+                    const currentPlayerState = player.getPlayerState ? player.getPlayerState() : PLAYER_STATES.UNSTARTED;
+                    if (roomData.playerState !== currentPlayerState) {
+                        switch (roomData.playerState) {
+                            case PLAYER_STATES.PLAYING: if (player.playVideo) player.playVideo(); break;
+                            case PLAYER_STATES.PAUSED: if (player.pauseVideo) player.pauseVideo(); break;
+                            case PLAYER_STATES.ENDED:
+                                if (player.seekTo) player.seekTo(player.getDuration()); 
+                                if (player.pauseVideo) player.pauseVideo(); break;
+                        }
+                    } setTimeout(() => localPlayerUpdate = false, 500);
+                }
+                 lastKnownPlayerState = roomData.playerState; lastKnownVideoTime = roomData.currentTime;
+            }, (error) => { console.error("Error listening to room updates:", error); showModal("حدث خطأ في الاتصال بالخادم لمزامنة الفيديو."); });
+        }
+
+        function listenToChatMessages() {
+            if (chatUnsubscribe) chatUnsubscribe();
+            const messagesRef = collection(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${currentRoomId}/chatMessages`);
+            const q = query(messagesRef, orderBy("timestamp", "asc")); 
+            chatUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                querySnapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        const msgData = change.doc.data();
+                        const messageElement = document.createElement('div');
+                        messageElement.classList.add('chat-message');
+                        const senderDisplayName = msgData.userEmail ? msgData.userEmail.split('@')[0] : (msgData.userId ? `مستخدم ${msgData.userId.substring(0,6)}` : 'مجهول');
+                        const finalSenderName = msgData.userId === currentUserId ? "أنت" : senderDisplayName;
+                        
+                        messageElement.innerHTML = `<strong>${finalSenderName}</strong><span>${escapeHTML(msgData.text)}</span>`;
+                        if (msgData.userId === currentUserId) messageElement.classList.add('sent');
+                        else messageElement.classList.add('received');
+                        chatMessages.appendChild(messageElement);
+                    }
+                });
+                if (chatMessages.children.length > 0) chatMessages.scrollTop = chatMessages.scrollHeight; 
+            }, (error) => { console.error("Error listening to chat messages:", error); showModal("حدث خطأ في تحميل رسائل الدردشة."); });
+        }
+        
+        function escapeHTML(str) {
+            var p = document.createElement("p");
+            p.appendChild(document.createTextNode(str)); return p.innerHTML;
+        }
+
+        async function sendChatMessage() {
+            if (!currentRoomId || !currentUserId) return;
+            const text = chatInput.value.trim();
+            if (text) {
+                const messagesRef = collection(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${currentRoomId}/chatMessages`);
+                try {
+                    await addDoc(messagesRef, { 
+                        userId: currentUserId, 
+                        userEmail: auth.currentUser ? auth.currentUser.email : null, // Store email for display
+                        text: text, 
+                        timestamp: serverTimestamp() 
+                    });
+                    chatInput.value = ''; 
+                } catch (error) { console.error("Error sending chat message:", error); showModal("حدث خطأ أثناء إرسال الرسالة."); }
+            }
+        }
+        sendChatMessageButton.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keypress', (event) => { if (event.key === 'Enter') sendChatMessage(); });
+
+        const ensurePlayerInterval = setInterval(() => {
+            if (currentRoomId && !player && typeof YT !== 'undefined' && typeof YT.Player !== 'undefined') {
+                const roomRef = doc(db, `artifacts/${appId}/public/data/yt_watch_party_rooms/${currentRoomId}`);
+                getDoc(roomRef).then(docSnap => { if (docSnap.exists()) initializePlayer(docSnap.data().currentVideoId); })
+                               .catch(err => console.error("Error re-fetching room data for late player init:", err));
+            }
+            if(player && typeof YT !== 'undefined' && typeof YT.Player !== 'undefined') clearInterval(ensurePlayerInterval);
+        }, 3000); 
+
+    </script>
 </body>
 </html>
